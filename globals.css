@@ -1,0 +1,609 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* LUDO dark-gold theme */
+  --background: #0e0e0e;
+  --foreground: #ede6db;
+  --card: #181818;
+  --card-foreground: #ede6db;
+  --popover: #181818;
+  --popover-foreground: #ede6db;
+  --primary: #c8956c;
+  --primary-foreground: #0e0e0e;
+  --secondary: #222222;
+  --secondary-foreground: #ede6db;
+  --muted: #1d1d1d;
+  --muted-foreground: #7d756a;
+  --accent: #c8956c;
+  --accent-foreground: #0e0e0e;
+  --destructive: #e63946;
+  --border: #2a2a2a;
+  --input: #2a2a2a;
+  --ring: #c8956c;
+
+  /* LUDO token colors */
+  --ludo-red: #e63946;
+  --ludo-green: #2a9d5c;
+  --ludo-yellow: #e9b825;
+  --ludo-blue: #3a86c8;
+  --ludo-board: #f2ece0;
+  --ludo-cell: #fffdf7;
+  --ludo-line: #d6cfc3;
+
+  --chart-1: #e63946;
+  --chart-2: #2a9d5c;
+  --chart-3: #e9b825;
+  --chart-4: #3a86c8;
+  --chart-5: #c8956c;
+  --sidebar: #181818;
+  --sidebar-foreground: #ede6db;
+  --sidebar-primary: #c8956c;
+  --sidebar-primary-foreground: #0e0e0e;
+  --sidebar-accent: #222222;
+  --sidebar-accent-foreground: #ede6db;
+  --sidebar-border: #2a2a2a;
+  --sidebar-ring: #c8956c;
+}
+
+.dark {
+  --background: #0e0e0e;
+  --foreground: #ede6db;
+  --card: #181818;
+  --card-foreground: #ede6db;
+  --popover: #181818;
+  --popover-foreground: #ede6db;
+  --primary: #c8956c;
+  --primary-foreground: #0e0e0e;
+  --secondary: #222222;
+  --secondary-foreground: #ede6db;
+  --muted: #1d1d1d;
+  --muted-foreground: #7d756a;
+  --accent: #c8956c;
+  --accent-foreground: #0e0e0e;
+  --destructive: #e63946;
+  --border: #2a2a2a;
+  --input: #2a2a2a;
+  --ring: #c8956c;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body {
+    @apply bg-background text-foreground;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    font-family: var(--font-sans), "DM Sans", system-ui, sans-serif;
+  }
+  .font-display {
+    font-family: var(--font-display), "Cinzel", serif;
+  }
+}
+
+/* Background noise texture (subtle, like the original LUDO design) */
+.bg-noise {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+.glow-blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===========================================================
+   3D Dice Cube — pure CSS 3D, tumbles in real perspective
+   Supports 1 or 2 dice (smaller size for the pair)
+   =========================================================== */
+.dice-scene {
+  width: 88px;
+  height: 88px;
+  perspective: 600px;
+  position: relative;
+}
+/* Smaller dice for the 2-dice variant */
+.dice-scene-sm {
+  width: 64px;
+  height: 64px;
+  perspective: 480px;
+}
+.dice-scene-sm .dice-cube {
+  width: 64px;
+  height: 64px;
+}
+.dice-scene-sm .dice-face {
+  width: 64px;
+  height: 64px;
+  padding: 7px;
+  border-radius: 10px;
+}
+.dice-scene-sm .dice-face.front  { transform: translateZ(32px); }
+.dice-scene-sm .dice-face.back   { transform: rotateY(180deg) translateZ(32px); }
+.dice-scene-sm .dice-face.right  { transform: rotateY(90deg)  translateZ(32px); }
+.dice-scene-sm .dice-face.left   { transform: rotateY(-90deg) translateZ(32px); }
+.dice-scene-sm .dice-face.top    { transform: rotateX(90deg)  translateZ(32px); }
+.dice-scene-sm .dice-face.bottom { transform: rotateX(-90deg) translateZ(32px); }
+.dice-scene-sm .dice-face .dot {
+  width: 10px;
+  height: 10px;
+}
+.dice-scene-sm .dice-shadow {
+  width: 52px;
+  height: 10px;
+  bottom: -14px;
+}
+
+.dice-pair {
+  width: auto !important;
+  height: 64px;
+}
+.dice-pair-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.dice-cube {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  transform-style: preserve-3d;
+  transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+}
+.dice-cube.rolling {
+  animation: diceTumble 0.12s linear infinite;
+  transition: none;
+}
+@keyframes diceTumble {
+  0%   { transform: rotateX(0deg)   rotateY(0deg)   rotateZ(0deg); }
+  100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(180deg); }
+}
+.dice-face {
+  position: absolute;
+  width: 88px;
+  height: 88px;
+  background: linear-gradient(135deg, #ffffff 0%, #f1ead8 100%);
+  border: 2px solid #d4c8aa;
+  border-radius: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 10px;
+  gap: 2px;
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.9),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.15);
+}
+.dice-face .dot-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dice-face .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #6a3a1a, #1a0a00);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.6),
+    0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.dice-face.front  { transform: translateZ(44px); }
+.dice-face.back   { transform: rotateY(180deg) translateZ(44px); }
+.dice-face.right  { transform: rotateY(90deg)  translateZ(44px); }
+.dice-face.left   { transform: rotateY(-90deg) translateZ(44px); }
+.dice-face.top    { transform: rotateX(90deg)  translateZ(44px); }
+.dice-face.bottom { transform: rotateX(-90deg) translateZ(44px); }
+
+/* Idle hover float */
+.dice-scene.idle .dice-cube:not(.rolling) {
+  animation: diceFloat 3s ease-in-out infinite;
+}
+.dice-scene-sm.idle .dice-cube:not(.rolling) {
+  animation: diceFloatSm 3s ease-in-out infinite;
+}
+@keyframes diceFloat {
+  0%, 100% { transform: translateY(0) rotateX(-15deg) rotateY(15deg); }
+  50%      { transform: translateY(-4px) rotateX(-15deg) rotateY(15deg); }
+}
+@keyframes diceFloatSm {
+  0%, 100% { transform: translateY(0) rotateX(-15deg) rotateY(15deg); }
+  50%      { transform: translateY(-3px) rotateX(-15deg) rotateY(15deg); }
+}
+
+/* Dice shadow on the board (faux 3D grounding) */
+.dice-shadow {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  width: 70px;
+  height: 14px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.45), transparent 70%);
+  transform: translateX(-50%);
+  filter: blur(3px);
+  pointer-events: none;
+}
+.dice-shadow.rolling {
+  animation: shadowPulse 0.12s linear infinite;
+}
+@keyframes shadowPulse {
+  0%, 100% { opacity: 0.45; transform: translateX(-50%) scale(1); }
+  50%      { opacity: 0.25; transform: translateX(-50%) scale(0.85); }
+}
+
+/* "Tap to roll" pulse ring around the dice when it's the human's turn */
+.dice-ring {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  opacity: 0;
+}
+.dice-ring.active {
+  animation: diceRing 1.6s ease-out infinite;
+}
+@keyframes diceRing {
+  0%   { opacity: 0.8; transform: scale(0.9); }
+  100% { opacity: 0;   transform: scale(1.4); }
+}
+
+
+/* Roll button (signature CTA) */
+.roll-btn {
+  background: linear-gradient(135deg, var(--accent), #a87550);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.roll-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(200, 149, 108, 0.27);
+}
+.roll-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #333;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.3s;
+  flex-shrink: 0;
+}
+.toggle-switch.active {
+  background: var(--accent);
+}
+.toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s;
+}
+.toggle-switch.active::after {
+  transform: translateX(20px);
+}
+
+/* Pulse animation for active player */
+@keyframes pulseGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(200, 149, 108, 0.27);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(200, 149, 108, 0.45),
+      0 0 60px rgba(200, 149, 108, 0.27);
+  }
+}
+.player-card.active {
+  animation: pulseGlow 2s infinite;
+  border-color: var(--accent) !important;
+}
+
+/* Token dots in player cards */
+.token-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+.token-dot.home {
+  opacity: 0.3;
+}
+.token-dot.finished {
+  border-color: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.4);
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 100;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  max-width: 90vw;
+  text-align: center;
+}
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Confetti */
+.confetti-piece {
+  position: fixed;
+  z-index: 90;
+  pointer-events: none;
+  animation: confettiFall linear forwards;
+}
+@keyframes confettiFall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100vh) rotate(720deg);
+  }
+}
+
+/* TV/remote focus styles — critical for Fire TV / Android TV D-pad navigation */
+.tv-focusable {
+  outline: none;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+.tv-focusable:focus-visible,
+.tv-focusable.is-focused {
+  box-shadow:
+    0 0 0 3px var(--accent),
+    0 0 24px rgba(200, 149, 108, 0.5);
+  transform: scale(1.04);
+  z-index: 10;
+}
+
+/* Hide scrollbars on Spotify panel but keep scroll */
+.sp-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.sp-scroll::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+.sp-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Spotify panel slide-in/out */
+.spotify-panel {
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.spotify-panel.collapsed {
+  transform: translateY(calc(100% - 48px));
+}
+
+/* Win overlay */
+.win-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+}
+.win-overlay.show {
+  display: flex;
+}
+
+/* Canvas */
+#ludo-board {
+  cursor: default;
+  touch-action: manipulation;
+  display: block;
+}
+#ludo-board.clickable {
+  cursor: pointer;
+}
+
+/* ===========================================================
+   3D Board — tilted in real CSS perspective, dice floats above
+   =========================================================== */
+.board-stage {
+  position: relative;
+  width: 100%;
+  max-width: min(82vw, 520px);
+  margin: 0 auto;
+  perspective: 900px;
+  perspective-origin: 50% 20%;
+}
+@media (min-width: 1024px) {
+  .board-stage {
+    max-width: min(70vh, 600px);
+  }
+}
+.board-tilt {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  transform: rotateX(38deg);
+  transform-style: preserve-3d;
+  transition: transform 0.4s ease;
+  filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.75));
+}
+.board-stage:hover .board-tilt {
+  transform: rotateX(32deg);
+}
+/* Board thickness — the wooden side of the board, gives real 3D depth */
+.board-tilt::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #6a4424 0%, #2a1810 100%);
+  border-radius: 14px;
+  transform: translateZ(-32px);
+  box-shadow: 0 0 0 3px #c8956c;
+}
+.board-tilt::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 40px;
+  background: linear-gradient(180deg, #5a3818 0%, #1a0e08 100%);
+  border-radius: 2px 2px 10px 10px;
+  transform: rotateX(90deg) translateZ(20px);
+  transform-origin: top;
+}
+.board-tilt canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 0 0 6px #c8956c,
+    0 0 40px rgba(0, 0, 0, 0.5);
+  position: relative;
+  z-index: 1;
+}
+
+/* Dice sits ABOVE the board center, in its own 3D layer */
+.board-dice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateZ(60px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: auto;
+}
+.board-dice .dice-scene {
+  transform: scale(1.1);
+}
+
+/* Bottom player bar (mobile-first, expands on TV) */
+.player-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.player-bar .player-card {
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+/* Status banner above the board */
+.status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto 8px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+/* Sticky footer support for short pages */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

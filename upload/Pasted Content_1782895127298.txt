@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUDO — Board Game with Spotify</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0e0e0e;
+            --card: #181818;
+            --card-hover: #222222;
+            --border: #2a2a2a;
+            --text: #ede6db;
+            --text-muted: #7d756a;
+            --accent: #c8956c;
+            --accent-glow: #c8956c44;
+            --red: #e63946;
+            --green: #2a9d5c;
+            --yellow: #e9b825;
+            --blue: #3a86c8;
+            --board-bg: #f2ece0;
+            --board-cell: #fffdf7;
+            --board-line: #d6cfc3;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .font-display { font-family: 'Cinzel', serif; }
+        .bg-noise {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-size: 256px 256px;
+        }
+        .glow-blob {
+            position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0;
+        }
+        #setup-screen, #game-screen { position: relative; z-index: 1; }
+        .player-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 12px 16px; transition: all 0.3s;
+        }
+        .player-card.active { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
+        .player-card .token-dot {
+            width: 14px; height: 14px; border-radius: 50%; display: inline-block;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        .player-card .token-dot.home { opacity: 0.3; }
+        .player-card .token-dot.finished { border-color: #4ade80; box-shadow: 0 0 6px #4ade8066; }
+
+        /* Dice */
+        .dice-container { perspective: 400px; }
+        .dice {
+            width: 72px; height: 72px; background: #fff; border-radius: 14px;
+            display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+            padding: 10px; gap: 2px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.8);
+            transition: transform 0.15s;
+        }
+        .dice.rolling { animation: diceShake 0.12s infinite alternate; }
+        @keyframes diceShake {
+            0% { transform: rotate(-8deg) scale(1.05); }
+            100% { transform: rotate(8deg) scale(0.95); }
+        }
+        .dice .dot-cell { display: flex; align-items: center; justify-content: center; }
+        .dice .dot {
+            width: 13px; height: 13px; border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #555, #1a1a1a);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .roll-btn {
+            background: linear-gradient(135deg, var(--accent), #a87550);
+            color: #fff; border: none; border-radius: 10px; padding: 10px 28px;
+            font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 15px;
+            cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .roll-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px var(--accent-glow); }
+        .roll-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        /* Spotify Panel */
+        .spotify-panel {
+            position: fixed; bottom: 0; right: 0; z-index: 50;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .spotify-panel.collapsed { transform: translateY(calc(100% - 48px)); }
+        .spotify-toggle {
+            position: absolute; top: -48px; right: 0; width: 48px; height: 48px;
+            background: #1db954; border: none; border-radius: 12px 12px 0 0;
+            color: #fff; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+        }
+        .spotify-toggle:hover { background: #1ed760; }
+        .spotify-body {
+            background: #121212; border: 1px solid #282828; border-bottom: none;
+            border-radius: 12px 0 0 0; width: 360px; max-height: 480px; overflow-y: auto;
+        }
+        .spotify-body::-webkit-scrollbar { width: 6px; }
+        .spotify-body::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        .sp-search-input {
+            background: #282828; border: 1px solid #3a3a3a; border-radius: 20px;
+            padding: 8px 16px 8px 36px; color: #fff; width: 100%; font-size: 13px;
+            outline: none; font-family: 'DM Sans', sans-serif;
+        }
+        .sp-search-input:focus { border-color: #1db954; }
+        .sp-track {
+            display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+            border-radius: 8px; cursor: pointer; transition: background 0.15s;
+        }
+        .sp-track:hover { background: #282828; }
+        .sp-track img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; }
+        .sp-controls button {
+            background: none; border: none; color: #b3b3b3; font-size: 18px;
+            cursor: pointer; padding: 8px; border-radius: 50%; transition: all 0.15s;
+        }
+        .sp-controls button:hover { color: #fff; background: #282828; }
+        .sp-controls .play-btn { color: #fff; font-size: 22px; }
+        .vol-slider {
+            -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
+            background: #3a3a3a; border-radius: 2px; outline: none;
+        }
+        .vol-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 12px; height: 12px;
+            background: #fff; border-radius: 50%; cursor: pointer;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px);
+            background: var(--card); border: 1px solid var(--border); color: var(--text);
+            padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 500;
+            z-index: 100; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* Win overlay */
+        #win-overlay {
+            position: fixed; inset: 0; z-index: 80; display: none;
+            align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+        }
+        #win-overlay.show { display: flex; }
+
+        /* Canvas cursor */
+        #board { cursor: default; }
+        #board.clickable { cursor: pointer; }
+
+        /* Setup */
+        .setup-player {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px;
+        }
+        .toggle-switch {
+            position: relative; width: 44px; height: 24px; background: #333; border-radius: 12px;
+            cursor: pointer; transition: background 0.3s; flex-shrink: 0;
+        }
+        .toggle-switch.active { background: var(--accent); }
+        .toggle-switch::after {
+            content: ''; position: absolute; top: 3px; left: 3px;
+            width: 18px; height: 18px; background: #fff; border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        .toggle-switch.active::after { transform: translateX(20px); }
+        .checkbox-opt { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--text-muted); }
+        .checkbox-opt input { accent-color: var(--accent); }
+
+        @media (max-width: 900px) {
+            .game-layout { flex-direction: column !important; align-items: center !important; }
+            .sidebar { width: 100% !important; max-width: 600px !important; }
+            .spotify-body { width: 320px; }
+        }
+
+        /* Confetti */
+        .confetti-piece {
+            position: fixed; z-index: 90; pointer-events: none;
+            animation: confettiFall linear forwards;
+        }
+        @keyframes confettiFall {
+            0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+            100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+        }
+
+        /* Pulse animation for active player */
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px var(--accent-glow); }
+            50% { box-shadow: 0 0 30px var(--accent-glow), 0 0 60px var(--accent-glow); }
+        }
+        .player-card.active { animation: pulseGlow 2s infinite; }
+    </style>
+</head>
+<body>
+    <div class="bg-noise"></div>
+    <div class="glow-blob" style="width:400px;height:400px;background:var(--accent);top:-100px;left:-100px;opacity:0.06;"></div>
+    <div class="glow-blob" style="width:300px;height:300px;background:var(--red);bottom:-50px;right:-50px;opacity:0.04;"></div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- ========== SETUP SCREEN ========== -->
+    <div id="setup-screen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-lg">
+            <div class="text-center mb-10">
+                <h1 class="font-display text-5xl font-black tracking-wider mb-3" style="color:var(--accent);">LUDO</h1>
+                <p class="text-sm" style="color:var(--text-muted);">The classic board game — now with your soundtrack</p>
+            </div>
+            <div class="space-y-3 mb-8" id="player-setup-list"></div>
+            <div class="flex gap-3">
+                <button onclick="startGame()" class="roll-btn flex-1 text-center" style="padding:14px 28px;font-size:16px;">
+                    Start Game
+                </button>
+            </div>
+            <div class="mt-6 p-4 rounded-xl" style="background:var(--card);border:1px solid var(--border);">
+                <p class="text-xs mb-2" style="color:var(--text-muted);"><i class="fa-solid fa-music mr-1"></i> Optional: Connect Spotify for in-game music</p>
+                <div class="flex gap-2">
+                    <input id="setup-spotify-id" type="text" placeholder="Spotify Client ID" class="sp-search-input flex-1" style="padding-left:12px;border-radius:8px;font-size:12px;">
+                    <button onclick="initSpotifyAuth()" class="text-xs px-3 py-1 rounded-lg font-semibold" style="background:#1db954;color:#fff;border:none;cursor:pointer;">Connect</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== GAME SCREEN ========== -->
+    <div id="game-screen" class="min-h-screen p-4 hidden">
+        <div class="game-layout flex gap-6 justify-center items-start max-w-[1100px] mx-auto">
+            <!-- Board -->
+            <div class="flex-shrink-0">
+                <canvas id="board" width="600" height="600" style="border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.5);"></canvas>
+            </div>
+            <!-- Sidebar -->
+            <div class="sidebar flex flex-col gap-4" style="width:280px;">
+                <!-- Turn Indicator -->
+                <div id="turn-indicator" class="text-center p-3 rounded-xl" style="background:var(--card);border:1px solid var(--border);">
+                    <div class="text-xs uppercase tracking-widest mb-1" style="color:var(--text-muted);">Current Turn</div>
+                    <div id="turn-name" class="font-display text-xl font-bold"></div>
+                </div>
+                <!-- Dice Area -->
+                <div class="flex flex-col items-center gap-3 p-5 rounded-xl" style="background:var(--card);border:1px solid var(--border);">
+                    <div class="dice-container">
+                        <div id="dice" class="dice"></div>
+                    </div>
+                    <button id="roll-btn" class="roll-btn" onclick="humanRoll()" disabled>Roll Dice</button>
+                    <div id="dice-msg" class="text-xs text-center" style="color:var(--text-muted);min-height:18px;"></div>
+                </div>
+                <!-- Player Cards -->
+                <div id="player-cards" class="space-y-2"></div>
+                <!-- Game Controls -->
+                <div class="flex gap-2">
+                    <button onclick="resetGame()" class="flex-1 text-xs py-2 rounded-lg font-semibold" style="background:var(--card);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> New Game
+                    </button>
+                    <button onclick="toggleRules()" class="flex-1 text-xs py-2 rounded-lg font-semibold" style="background:var(--card);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;">
+                        <i class="fa-solid fa-circle-question mr-1"></i> Rules
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== RULES MODAL ========== -->
+    <div id="rules-modal" style="display:none;position:fixed;inset:0;z-index:70;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);align-items:center;justify-content:center;" onclick="if(event.target===this)toggleRules()">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:440px;width:90%;max-height:80vh;overflow-y:auto;">
+            <h2 class="font-display text-xl font-bold mb-4" style="color:var(--accent);">How to Play</h2>
+            <div class="space-y-3 text-sm" style="color:var(--text-muted);line-height:1.7;">
+                <p><strong style="color:var(--text);">Roll a 6</strong> to move a token from your home base onto the board.</p>
+                <p><strong style="color:var(--text);">Move tokens</strong> clockwise by the number shown on the dice.</p>
+                <p><strong style="color:var(--text);">Capture</strong> an opponent's token by landing on it (not on safe spots marked with stars).</p>
+                <p><strong style="color:var(--text);">Rolling a 6</strong> gives you an extra turn. Three consecutive 6s forfeit your turn.</p>
+                <p><strong style="color:var(--text);">Home stretch</strong> — after going around the board, enter your colored column. You need an exact roll to reach the center.</p>
+                <p><strong style="color:var(--text);">Win</strong> by getting all 4 tokens to the center home.</p>
+                <p><strong style="color:var(--text);">Spotify</strong> — connect from the green music button at the bottom-right to play music while you play.</p>
+            </div>
+            <button onclick="toggleRules()" class="roll-btn mt-5 w-full text-center" style="font-size:13px;padding:10px;">Got It</button>
+        </div>
+    </div>
+
+    <!-- ========== WIN OVERLAY ========== -->
+    <div id="win-overlay">
+        <div class="text-center">
+            <div class="font-display text-6xl font-black mb-4" id="win-title"></div>
+            <p class="text-lg mb-8" style="color:var(--text-muted);" id="win-subtitle">All tokens reached home!</p>
+            <button onclick="resetGame()" class="roll-btn" style="font-size:16px;padding:14px 40px;">Play Again</button>
+        </div>
+    </div>
+
+    <!-- ========== SPOTIFY PANEL ========== -->
+    <div id="spotify-panel" class="spotify-panel collapsed">
+        <button class="spotify-toggle" onclick="toggleSpotify()">
+            <i class="fa-brands fa-spotify"></i>
+        </button>
+        <div class="spotify-body p-4">
+            <div id="sp-disconnected">
+                <p class="text-xs mb-3" style="color:#b3b3b3;">Enter your Spotify Client ID to connect</p>
+                <div class="flex gap-2 mb-2">
+                    <input id="sp-client-id" type="text" placeholder="Client ID" class="sp-search-input flex-1" style="padding-left:12px;border-radius:8px;font-size:12px;">
+                    <button onclick="initSpotifyAuth()" class="text-xs px-3 py-1 rounded-lg font-semibold" style="background:#1db954;color:#fff;border:none;cursor:pointer;white-space:nowrap;">Connect</button>
+                </div>
+                <p class="text-xs" style="color:#666;">Get a Client ID at <a href="https://developer.spotify.com/dashboard" target="_blank" style="color:#1db954;">developer.spotify.com</a>. Add this page's URL as a redirect URI in your app settings.</p>
+            </div>
+            <div id="sp-connected" class="hidden">
+                <!-- Now Playing -->
+                <div id="sp-now-playing" class="flex items-center gap-3 mb-4 p-3 rounded-lg" style="background:#1a1a1a;">
+                    <img id="sp-album-art" src="" alt="" style="width:48px;height:48px;border-radius:6px;object-fit:cover;display:none;">
+                    <div class="flex-1 min-w-0">
+                        <div id="sp-track-name" class="text-sm font-semibold truncate" style="color:#fff;">Nothing playing</div>
+                        <div id="sp-artist" class="text-xs truncate" style="color:#b3b3b3;">—</div>
+                    </div>
+                    <button onclick="disconnectSpotify()" class="text-xs" style="color:#666;background:none;border:none;cursor:pointer;" title="Disconnect">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <!-- Search -->
+                <div class="relative mb-3">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:#666;"></i>
+                    <input id="sp-search" type="text" placeholder="Search songs..." class="sp-search-input" onkeydown="if(event.key==='Enter')searchSpotify()">
+                </div>
+                <div id="sp-results" class="space-y-1 mb-4" style="max-height:200px;overflow-y:auto;"></div>
+                <!-- Controls -->
+                <div class="sp-controls flex items-center justify-center gap-2 mb-3">
+                    <button onclick="spPrev()"><i class="fa-solid fa-backward-step"></i></button>
+                    <button class="play-btn" id="sp-play-btn" onclick="spTogglePlay()"><i class="fa-solid fa-play"></i></button>
+                    <button onclick="spNext()"><i class="fa-solid fa-forward-step"></i></button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-volume-low text-xs" style="color:#666;"></i>
+                    <input type="range" class="vol-slider flex-1" min="0" max="100" value="70" oninput="spSetVolume(this.value)">
+                    <i class="fa-solid fa-volume-high text-xs" style="color:#666;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    /* ================================================================
+       CONSTANTS
+    ================================================================ */
+    const CS = 40; // cell size in pixels
+    const BOARD = 15;
+    const COLORS = ['red','green','yellow','blue'];
+    const COLOR_HEX = { red:'#e63946', green:'#2a9d5c', yellow:'#e9b825', blue:'#3a86c8' };
+    const COLOR_LIGHT = { red:'#f8d7da', green:'#d4edda', yellow:'#fff3cd', blue:'#d1ecf1' };
+    const COLOR_NAMES = { red:'Red', green:'Green', yellow:'Yellow', blue:'Blue' };
+    const PLAYER_START_IDX = { red:0, green:13, yellow:26, blue:39 };
+
+    // 52-cell main path [row, col]
+    const MAIN_PATH = [
+        [6,0],[6,1],[6,2],[6,3],[6,4],[6,5],
+        [5,6],[4,6],[3,6],[2,6],[1,6],[0,6],
+        [0,7],
+        [0,8],[1,8],[2,8],[3,8],[4,8],[5,8],
+        [6,9],[6,10],[6,11],[6,12],[6,13],[6,14],
+        [7,14],
+        [8,14],[8,13],[8,12],[8,11],[8,10],[8,9],
+        [9,8],[10,8],[11,8],[12,8],[13,8],[14,8],
+        [14,7],
+        [14,6],[13,6],[12,6],[11,6],[10,6],[9,6],
+        [8,5],[8,4],[8,3],[8,2],[8,1],[8,0],
+        [7,0]
+    ];
+
+    // Home stretches (6 cells each, toward center)
+    const HOME_STRETCH = {
+        red:   [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],
+        green: [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]],
+        yellow:[[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],
+        blue:  [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]]
+    };
+
+    // Home base token positions (pixel coords) for each player's 4 tokens
+    const HOME_BASE_POS = {
+        red:   [{x:1.5*CS,y:10.5*CS},{x:3.5*CS,y:10.5*CS},{x:1.5*CS,y:12.5*CS},{x:3.5*CS,y:12.5*CS}],
+        green: [{x:1.5*CS,y:1.5*CS},{x:3.5*CS,y:1.5*CS},{x:1.5*CS,y:3.5*CS},{x:3.5*CS,y:3.5*CS}],
+        yellow:[{x:10.5*CS,y:1.5*CS},{x:12.5*CS,y:1.5*CS},{x:10.5*CS,y:3.5*CS},{x:12.5*CS,y:3.5*CS}],
+        blue:  [{x:10.5*CS,y:10.5*CS},{x:12.5*CS,y:10.5*CS},{x:10.5*CS,y:12.5*CS},{x:12.5*CS,y:12.5*CS}]
+    };
+
+    // Safe spot absolute indices
+    const SAFE_SPOTS = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
+
+    // Home base areas (row, col ranges for the 6x6 corners)
+    const HOME_AREAS = {
+        red:   {r1:9,r2:14,c1:0,c2:5},
+        green: {r1:0,r2:5,c1:0,c2:5},
+        yellow:{r1:0,r2:5,c1:9,c2:14},
+        blue:  {r1:9,r2:14,c1:9,c2:14}
+    };
+
+    /* ================================================================
+       GAME STATE
+    ================================================================ */
+    let players = [];
+    let currentPlayer = 0;
+    let activePlayerOrder = []; // indices into players array for active players
+    let diceValue = 0;
+    let consecutiveSixes = 0;
+    let gamePhase = 'idle'; // idle, waiting_roll, rolling, waiting_token, animating, finished
+    let validMoves = [];
+    let isAnimating = false;
+
+    // Audio context
+    let audioCtx = null;
+    function getAudioCtx() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        return audioCtx;
+    }
+
+    /* ================================================================
+       SETUP SCREEN
+    ================================================================ */
+    const setupData = [
+        { color:'red',   name:'Red',    active:true,  isAI:false },
+        { color:'green', name:'Green',  active:true,  isAI:true  },
+        { color:'yellow',name:'Yellow', active:true,  isAI:true  },
+        { color:'blue',  name:'Blue',   active:true,  isAI:true  }
+    ];
+
+    function renderSetup() {
+        const list = document.getElementById('player-setup-list');
+        list.innerHTML = setupData.map((p, i) => `
+            <div class="setup-player" style="${p.active ? 'border-color:'+COLOR_HEX[p.color]+'44;' : 'opacity:0.4;'}">
+                <div style="width:24px;height:24px;border-radius:50%;background:${COLOR_HEX[p.color]};flex-shrink:0;"></div>
+                <span class="flex-1 font-semibold text-sm">${p.name}</span>
+                <div class="flex items-center gap-3">
+                    <label class="checkbox-opt" onclick="event.stopPropagation()">
+                        <input type="checkbox" ${p.active?'checked':''} onchange="setupData[${i}].active=this.checked;renderSetup()">
+                        Active
+                    </label>
+                    <div class="toggle-switch ${p.isAI?'active':''}" onclick="setupData[${i}].isAI=!setupData[${i}].isAI;renderSetup()" title="${p.isAI?'AI':'Human'}"></div>
+                    <span class="text-xs" style="color:var(--text-muted);width:36px;">${p.isAI?'AI':'Human'}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+    renderSetup();
+
+    function startGame() {
+        const activePlayers = setupData.filter(p => p.active);
+        if (activePlayers.length < 2) { showToast('Need at least 2 players'); return; }
+        players = activePlayers.map(p => ({
+            color: p.color,
+            name: p.name,
+            isAI: p.isAI,
+            tokens: [{pos:-1},{pos:-1},{pos:-1},{pos:-1}] // -1=home, 0-51=main, 52-57=stretch, 58=finished
+        }));
+        activePlayerOrder = players.map((_,i) => i);
+        currentPlayer = 0;
+        consecutiveSixes = 0;
+        gamePhase = 'idle';
+
+        document.getElementById('setup-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        renderPlayerCards();
+        drawBoard();
+        startTurn();
+    }
+
+    function resetGame() {
+        document.getElementById('win-overlay').classList.remove('show');
+        document.getElementById('game-screen').classList.add('hidden');
+        document.getElementById('setup-screen').classList.remove('hidden');
+        gamePhase = 'idle';
+    }
+
+    /* ================================================================
+       PLAYER CARDS
+    ================================================================ */
+    function renderPlayerCards() {
+        const container = document.getElementById('player-cards');
+        container.innerHTML = players.map((p, i) => {
+            const tokensHtml = p.tokens.map(t => {
+                let cls = 'token-dot';
+                if (t.pos === -1) cls += ' home';
+                if (t.pos === 58) cls += ' finished';
+                return `<span class="${cls}" style="background:${COLOR_HEX[p.color]};"></span>`;
+            }).join('');
+            const finished = p.tokens.filter(t => t.pos === 58).length;
+            return `
+                <div class="player-card" id="pcard-${i}">
+                    <div class="flex items-center gap-3">
+                        <div style="width:20px;height:20px;border-radius:50%;background:${COLOR_HEX[p.color]};flex-shrink:0;"></div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold text-sm">${p.name}</span>
+                                ${p.isAI ? '<span class="text-xs px-1.5 py-0.5 rounded" style="background:var(--border);color:var(--text-muted);font-size:10px;">AI</span>' : ''}
+                            </div>
+                            <div class="flex gap-1.5 mt-1">${tokensHtml}</div>
+                        </div>
+                        <span class="text-xs" style="color:var(--text-muted);">${finished}/4</span>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function updatePlayerCards() {
+        players.forEach((p, i) => {
+            const card = document.getElementById(`pcard-${i}`);
+            if (!card) return;
+            card.classList.toggle('active', i === activePlayerOrder[currentPlayer]);
+            const dots = card.querySelectorAll('.token-dot');
+            p.tokens.forEach((t, j) => {
+                dots[j].className = 'token-dot';
+                if (t.pos === -1) dots[j].classList.add('home');
+                if (t.pos === 58) dots[j].classList.add('finished');
+            });
+            const counter = card.querySelector('span:last-child');
+            if (counter) counter.textContent = `${p.tokens.filter(t=>t.pos===58).length}/4`;
+        });
+    }
+
+    /* ================================================================
+       TURN INDICATOR
+    ================================================================ */
+    function updateTurnIndicator() {
+        const p = players[activePlayerOrder[currentPlayer]];
+        document.getElementById('turn-name').textContent = p.name;
+        document.getElementById('turn-name').style.color = COLOR_HEX[p.color];
+        document.getElementById('turn-indicator').style.borderColor = COLOR_HEX[p.color] + '66';
+    }
+
+    /* ================================================================
+       DICE
+    ================================================================ */
+    const DICE_DOTS = {
+        1: [5],
+        2: [3,7],
+        3: [3,5,7],
+        4: [1,3,7,9],
+        5: [1,3,5,7,9],
+        6: [1,3,4,6,7,9]
+    };
+
+    function renderDice(value) {
+        const dice = document.getElementById('dice');
+        const dots = DICE_DOTS[value] || [];
+        let html = '';
+        for (let i = 1; i <= 9; i++) {
+            html += `<div class="dot-cell">${dots.includes(i) ? '<div class="dot"></div>' : ''}</div>`;
+        }
+        dice.innerHTML = html;
+    }
+    renderDice(1);
+
+    function rollDiceAnim(callback) {
+        gamePhase = 'rolling';
+        const dice = document.getElementById('dice');
+        dice.classList.add('rolling');
+        document.getElementById('roll-btn').disabled = true;
+        let count = 0;
+        const maxCount = 12;
+        const interval = setInterval(() => {
+            renderDice(Math.floor(Math.random()*6)+1);
+            count++;
+            if (count >= maxCount) {
+                clearInterval(interval);
+                dice.classList.remove('rolling');
+                diceValue = Math.floor(Math.random()*6)+1;
+                renderDice(diceValue);
+                playSound('dice');
+                callback(diceValue);
+            }
+        }, 80);
+    }
+
+    /* ================================================================
+       BOARD RENDERING
+    ================================================================ */
+    const canvas = document.getElementById('board');
+    const ctx = canvas.getContext('2d');
+
+    // Pre-render static board
+    const boardBuffer = document.createElement('canvas');
+    boardBuffer.width = boardBuffer.height = 600;
+    const bctx = boardBuffer.getContext('2d');
+
+    function drawBoardStatic() {
+        const c = bctx;
+        // Background
+        c.fillStyle = '#d6cfc3';
+        c.fillRect(0, 0, 600, 600);
+
+        // Home base areas
+        for (const color of COLORS) {
+            const a = HOME_AREAS[color];
+            c.fillStyle = COLOR_HEX[color];
+            c.fillRect(a.c1*CS, a.r1*CS, (a.c2-a.c1+1)*CS, (a.r2-a.r1+1)*CS);
+            // Inner white box
+            const m = CS * 0.8;
+            c.fillStyle = '#fff';
+            c.fillRect(a.c1*CS + m, a.r1*CS + m, (a.c2-a.c1+1)*CS - 2*m, (a.r2-a.r1+1)*CS - 2*m);
+            // Token circles in home
+            const positions = HOME_BASE_POS[color];
+            positions.forEach(pos => {
+                c.beginPath();
+                c.arc(pos.x, pos.y, CS*0.35, 0, Math.PI*2);
+                c.fillStyle = COLOR_LIGHT[color];
+                c.fill();
+                c.strokeStyle = COLOR_HEX[color];
+                c.lineWidth = 2;
+                c.stroke();
+            });
+        }
+
+        // Path cells
+        MAIN_PATH.forEach(([r,col], idx) => {
+            const x = col*CS, y = r*CS;
+            // Determine cell color
+            let fillColor = '#fffdf7';
+            // Color start cells
+            for (const color of COLORS) {
+                if (idx === PLAYER_START_IDX[color]) fillColor = COLOR_LIGHT[color];
+            }
+            c.fillStyle = fillColor;
+            c.fillRect(x+1, y+1, CS-2, CS-2);
+            c.strokeStyle = '#d6cfc3';
+            c.lineWidth = 0.5;
+            c.strokeRect(x+1, y+1, CS-2, CS-2);
+
+            // Star on safe spots
+            if (SAFE_SPOTS.has(idx)) {
+                drawStar(c, x + CS/2, y + CS/2, 8, 4, 5, '#c8956c');
+            }
+
+            // Arrow on start cells
+            for (const color of COLORS) {
+                if (idx === PLAYER_START_IDX[color]) {
+                    c.fillStyle = COLOR_HEX[color] + '44';
+                    c.fillRect(x+1, y+1, CS-2, CS-2);
+                    // Small arrow indicator
+                    c.fillStyle = COLOR_HEX[color];
+                    c.font = '14px sans-serif';
+                    c.textAlign = 'center';
+                    c.textBaseline = 'middle';
+                    c.fillText('▶', x+CS/2, y+CS/2);
+                }
+            }
+        });
+
+        // Home stretch cells
+        for (const color of COLORS) {
+            HOME_STRETCH[color].forEach(([r,col], i) => {
+                const x = col*CS, y = r*CS;
+                c.fillStyle = COLOR_LIGHT[color];
+                c.fillRect(x+1, y+1, CS-2, CS-2);
+                c.strokeStyle = COLOR_HEX[color] + '44';
+                c.lineWidth = 0.5;
+                c.strokeRect(x+1, y+1, CS-2, CS-2);
+                // Small triangle pointing to center
+                c.fillStyle = COLOR_HEX[color] + '55';
+                c.beginPath();
+                c.moveTo(x+CS/2, y+CS*0.3);
+                c.lineTo(x+CS*0.7, y+CS*0.7);
+                c.lineTo(x+CS*0.3, y+CS*0.7);
+                c.closePath();
+                c.fill();
+            });
+        }
+
+        // Center area - 4 colored triangles
+        const cx = 7.5*CS, cy = 7.5*CS, s = CS*1.5;
+        // Red (bottom-left)
+        c.fillStyle = COLOR_HEX.red;
+        c.beginPath(); c.moveTo(cx,cy); c.lineTo(cx-s,cy+s); c.lineTo(cx-s,cy-s); c.closePath(); c.fill();
+        // Green (top-left)
+        c.fillStyle = COLOR_HEX.green;
+        c.beginPath(); c.moveTo(cx,cy); c.lineTo(cx-s,cy-s); c.lineTo(cx+s,cy-s); c.closePath(); c.fill();
+        // Yellow (top-right)
+        c.fillStyle = COLOR_HEX.yellow;
+        c.beginPath(); c.moveTo(cx,cy); c.lineTo(cx+s,cy-s); c.lineTo(cx+s,cy+s); c.closePath(); c.fill();
+        // Blue (bottom-right)
+        c.fillStyle = COLOR_HEX.blue;
+        c.beginPath(); c.moveTo(cx,cy); c.lineTo(cx+s,cy+s); c.lineTo(cx-s,cy+s); c.closePath(); c.fill();
+
+        // Center circle
+        c.beginPath();
+        c.arc(cx, cy, CS*0.55, 0, Math.PI*2);
+        c.fillStyle = '#fffdf7';
+        c.fill();
+        c.strokeStyle = '#d6cfc3';
+        c.lineWidth = 2;
+        c.stroke();
+
+        // Home text
+        c.fillStyle = '#888';
+        c.font = 'bold 11px "DM Sans", sans-serif';
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        c.fillText('HOME', cx, cy);
+    }
+
+    function drawStar(c, cx, cy, outerR, innerR, points, color) {
+        c.fillStyle = color;
+        c.beginPath();
+        for (let i = 0; i < points*2; i++) {
+            const r = i%2===0 ? outerR : innerR;
+            const a = (Math.PI/2*3) + (i * Math.PI / points);
+            const x = cx + Math.cos(a)*r;
+            const y = cy + Math.sin(a)*r;
+            if (i===0) c.moveTo(x,y); else c.lineTo(x,y);
+        }
+        c.closePath();
+        c.fill();
+    }
+
+    function getTokenPixelPos(color, tokenIdx) {
+        const pIdx = players.findIndex(p => p.color === color);
+        if (pIdx === -1) return {x:0,y:0};
+        const pos = players[pIdx].tokens[tokenIdx].pos;
+        if (pos === -1) {
+            return {...HOME_BASE_POS[color][tokenIdx]};
+        } else if (pos >= 0 && pos <= 51) {
+            const absIdx = (PLAYER_START_IDX[color] + pos) % 52;
+            const [r,c] = MAIN_PATH[absIdx];
+            return { x: c*CS + CS/2, y: r*CS + CS/2 };
+        } else if (pos >= 52 && pos <= 57) {
+            const [r,c] = HOME_STRETCH[color][pos - 52];
+            return { x: c*CS + CS/2, y: r*CS + CS/2 };
+        } else {
+            return { x: 7.5*CS, y: 7.5*CS };
+        }
+    }
+
+    function drawTokens(highlighted = []) {
+        // Collect all token positions for overlap detection
+        const allPositions = [];
+        players.forEach((p, pi) => {
+            p.tokens.forEach((t, ti) => {
+                if (t.pos === 58) return; // finished tokens shown in home center
+                const pos = getTokenPixelPos(p.color, ti);
+                allPositions.push({ pi, ti, ...pos, color: p.color });
+            });
+        });
+
+        // Group by same pixel position
+        const groups = {};
+        allPositions.forEach(tp => {
+            const key = `${Math.round(tp.x)},${Math.round(tp.y)}`;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(tp);
+        });
+
+        // Draw tokens with offset for overlaps
+        const offsets = [[-6,-6],[6,-6],[-6,6],[6,6]];
+        Object.values(groups).forEach(group => {
+            group.forEach((tp, idx) => {
+                let dx = 0, dy = 0;
+                if (group.length > 1) {
+                    dx = offsets[idx % 4][0];
+                    dy = offsets[idx % 4][1];
+                }
+                const x = tp.x + dx;
+                const y = tp.y + dy;
+                const isHighlighted = highlighted.some(h => h.pi === tp.pi && h.ti === tp.ti);
+
+                // Glow for highlighted
+                if (isHighlighted) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, CS*0.4, 0, Math.PI*2);
+                    ctx.fillStyle = COLOR_HEX[tp.color] + '44';
+                    ctx.fill();
+                    // Pulsing ring
+                    const pulse = Math.sin(Date.now() / 200) * 0.15 + 0.85;
+                    ctx.beginPath();
+                    ctx.arc(x, y, CS*0.38 * pulse, 0, Math.PI*2);
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Token body
+                const grad = ctx.createRadialGradient(x-3, y-3, 2, x, y, CS*0.32);
+                grad.addColorStop(0, lightenColor(COLOR_HEX[tp.color], 40));
+                grad.addColorStop(1, COLOR_HEX[tp.color]);
+                ctx.beginPath();
+                ctx.arc(x, y, CS*0.3, 0, Math.PI*2);
+                ctx.fillStyle = grad;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Shine
+                ctx.beginPath();
+                ctx.arc(x - 3, y - 4, CS*0.1, 0, Math.PI*2);
+                ctx.fillStyle = 'rgba(255,255,255,0.35)';
+                ctx.fill();
+            });
+        });
+
+        // Draw finished token count in center
+        players.forEach(p => {
+            const finished = p.tokens.filter(t => t.pos === 58).length;
+            if (finished > 0) {
+                const angle = {red: Math.PI*0.75, green: Math.PI*1.25, yellow: Math.PI*1.75, blue: Math.PI*0.25}[p.color];
+                const r = CS * 0.3;
+                const cx = 7.5*CS + Math.cos(angle)*r;
+                const cy = 7.5*CS + Math.sin(angle)*r;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 5, 0, Math.PI*2);
+                ctx.fillStyle = COLOR_HEX[p.color];
+                ctx.fill();
+            }
+        });
+    }
+
+    function lightenColor(hex, percent) {
+        const num = parseInt(hex.replace('#',''), 16);
+        const r = Math.min(255, (num >> 16) + percent);
+        const g = Math.min(255, ((num >> 8) & 0xff) + percent);
+        const b = Math.min(255, (num & 0xff) + percent);
+        return `rgb(${r},${g},${b})`;
+    }
+
+    function drawBoard(highlighted = []) {
+        ctx.drawImage(boardBuffer, 0, 0);
+        drawTokens(highlighted);
+    }
+
+    drawBoardStatic();
+    drawBoard();
+
+    /* ================================================================
+       GAME LOGIC
+    ================================================================ */
+    function getValidMoves(pIdx, dice) {
+        const p = players[pIdx];
+        const moves = [];
+        p.tokens.forEach((t, ti) => {
+            if (t.pos === 58) return; // already finished
+            if (t.pos === -1) {
+                // In home - need a 6 to come out
+                if (dice === 6) {
+                    moves.push({ tokenIdx: ti, newPos: 0, type: 'enter' });
+                }
+            } else {
+                const newPos = t.pos + dice;
+                if (newPos <= 58) {
+                    // Check if a friendly token is already at the destination on main path
+                    if (newPos <= 51) {
+                        const absNew = (PLAYER_START_IDX[p.color] + newPos) % 52;
+                        let blocked = false;
+                        p.tokens.forEach((ot, oi) => {
+                            if (oi === ti) return;
+                            if (ot.pos >= 0 && ot.pos <= 51) {
+                                const absOther = (PLAYER_START_IDX[p.color] + ot.pos) % 52;
+                                if (absOther === absNew) blocked = true;
+                            }
+                        });
+                        if (!blocked) moves.push({ tokenIdx: ti, newPos, type: 'move' });
+                    } else {
+                        moves.push({ tokenIdx: ti, newPos, type: 'move' });
+                    }
+                }
+            }
+        });
+        return moves;
+    }
+
+    function checkCapture(pIdx, tokenIdx, doCapture = true) {
+        const p = players[pIdx];
+        const t = p.tokens[tokenIdx];
+        if (t.pos < 0 || t.pos > 51) return null;
+        const absPos = (PLAYER_START_IDX[p.color] + t.pos) % 52;
+        if (SAFE_SPOTS.has(absPos)) return null;
+
+        let captured = null;
+        players.forEach((op, oi) => {
+            if (oi === pIdx) return;
+            op.tokens.forEach((ot, oti) => {
+                if (ot.pos < 0 || ot.pos > 51) return;
+                const otherAbs = (PLAYER_START_IDX[op.color] + ot.pos) % 52;
+                if (otherAbs === absPos && doCapture) {
+                    ot.pos = -1;
+                    captured = { playerIdx: oi, tokenIdx: oti, color: op.color };
+                    playSound('capture');
+                    showToast(`${p.name} captured ${op.name}'s token!`);
+                }
+            });
+        });
+        return captured;
+    }
+
+    function checkWin(pIdx) {
+        return players[pIdx].tokens.every(t => t.pos === 58);
+    }
+
+    function executeMove(pIdx, move, callback) {
+        isAnimating = true;
+        const p = players[pIdx];
+        const t = p.tokens[move.tokenIdx];
+        const fromPos = t.pos;
+        const toPos = move.newPos;
+
+        if (move.type === 'enter') {
+            // Animate from home to start
+            t.pos = 0;
+            playSound('move');
+            drawBoard();
+            updatePlayerCards();
+            setTimeout(() => {
+                checkCapture(pIdx, move.tokenIdx);
+                drawBoard();
+                updatePlayerCards();
+                isAnimating = false;
+                callback();
+            }, 200);
+        } else {
+            // Step-by-step animation
+            let step = 0;
+            const totalSteps = toPos - fromPos;
+            function doStep() {
+                step++;
+                t.pos = fromPos + step;
+                if (step < totalSteps) {
+                    playSound('move');
+                    drawBoard();
+                    updatePlayerCards();
+                    setTimeout(doStep, 120);
+                } else {
+                    // Final step
+                    if (t.pos === 58) {
+                        playSound('home');
+                        showToast(`${p.name} got a token home!`);
+                    } else {
+                        playSound('move');
+                    }
+                    checkCapture(pIdx, move.tokenIdx);
+                    drawBoard();
+                    updatePlayerCards();
+                    isAnimating = false;
+                    callback();
+                }
+            }
+            if (totalSteps > 0) doStep();
+            else { isAnimating = false; callback(); }
+        }
+    }
+
+    function nextTurn() {
+        consecutiveSixes = 0;
+        currentPlayer = (currentPlayer + 1) % activePlayerOrder.length;
+        startTurn();
+    }
+
+    function startTurn() {
+        if (gamePhase === 'finished') return;
+        updateTurnIndicator();
+        updatePlayerCards();
+        drawBoard();
+        document.getElementById('dice-msg').textContent = '';
+
+        const pIdx = activePlayerOrder[currentPlayer];
+        const p = players[pIdx];
+
+        if (p.isAI) {
+            gamePhase = 'idle';
+            document.getElementById('roll-btn').disabled = true;
+            setTimeout(() => aiTurn(), 700);
+        } else {
+            gamePhase = 'waiting_roll';
+            document.getElementById('roll-btn').disabled = false;
+            document.getElementById('dice-msg').textContent = 'Your turn — roll the dice';
+        }
+    }
+
+    function humanRoll() {
+        if (gamePhase !== 'waiting_roll') return;
+        rollDiceAnim((value) => {
+            handlePostRoll(activePlayerOrder[currentPlayer], value);
+        });
+    }
+
+    function handlePostRoll(pIdx, value) {
+        const p = players[pIdx];
+        if (value === 6) {
+            consecutiveSixes++;
+            if (consecutiveSixes >= 3) {
+                document.getElementById('dice-msg').textContent = 'Three 6s! Turn lost.';
+                showToast(`${p.name} rolled three 6s — turn forfeited!`);
+                setTimeout(nextTurn, 1200);
+                return;
+            }
+        } else {
+            consecutiveSixes = 0;
+        }
+
+        validMoves = getValidMoves(pIdx, value);
+        if (validMoves.length === 0) {
+            document.getElementById('dice-msg').textContent = 'No valid moves';
+            setTimeout(nextTurn, 1000);
+            return;
+        }
+
+        if (p.isAI) {
+            const move = aiChooseMove(pIdx, value, validMoves);
+            executeMove(pIdx, move, () => {
+                if (checkWin(pIdx)) {
+                    gamePhase = 'finished';
+                    showWin(pIdx);
+                    return;
+                }
+                if (value === 6 && consecutiveSixes < 3) {
+                    setTimeout(() => aiTurn(), 600);
+                } else {
+                    setTimeout(nextTurn, 400);
+                }
+            });
+        } else {
+            if (validMoves.length === 1) {
+                // Auto-move if only one option
+                gamePhase = 'animating';
+                document.getElementById('dice-msg').textContent = 'Moving...';
+                executeMove(pIdx, validMoves[0], () => {
+                    if (checkWin(pIdx)) { gamePhase = 'finished'; showWin(pIdx); return; }
+                    if (value === 6 && consecutiveSixes < 3) {
+                        gamePhase = 'waiting_roll';
+                        document.getElementById('roll-btn').disabled = false;
+                        document.getElementById('dice-msg').textContent = 'Rolled 6 — roll again!';
+                    } else {
+                        nextTurn();
+                    }
+                });
+            } else {
+                gamePhase = 'waiting_token';
+                document.getElementById('dice-msg').textContent = 'Select a token to move';
+                canvas.classList.add('clickable');
+                // Highlight valid tokens
+                highlightLoop();
+            }
+        }
+    }
+
+    let highlightRAF = null;
+    function highlightLoop() {
+        if (gamePhase !== 'waiting_token') { canvas.classList.remove('clickable'); return; }
+        const highlighted = validMoves.map(m => ({ pi: activePlayerOrder[currentPlayer], ti: m.tokenIdx }));
+        drawBoard(highlighted);
+        highlightRAF = requestAnimationFrame(highlightLoop);
+    }
+
+    // Canvas click handler for human token selection
+    canvas.addEventListener('click', (e) => {
+        if (gamePhase !== 'waiting_token') return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = 600 / rect.width;
+        const scaleY = 600 / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top) * scaleY;
+
+        const pIdx = activePlayerOrder[currentPlayer];
+        let clickedMove = null;
+        let minDist = Infinity;
+
+        validMoves.forEach(move => {
+            const pos = getTokenPixelPos(players[pIdx].color, move.tokenIdx);
+            const dx = mx - pos.x, dy = my - pos.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < CS * 0.5 && dist < minDist) {
+                minDist = dist;
+                clickedMove = move;
+            }
+        });
+
+        if (clickedMove) {
+            if (highlightRAF) cancelAnimationFrame(highlightRAF);
+            canvas.classList.remove('clickable');
+            gamePhase = 'animating';
+            const value = diceValue;
+            executeMove(pIdx, clickedMove, () => {
+                if (checkWin(pIdx)) { gamePhase = 'finished'; showWin(pIdx); return; }
+                if (value === 6 && consecutiveSixes < 3) {
+                    gamePhase = 'waiting_roll';
+                    document.getElementById('roll-btn').disabled = false;
+                    document.getElementById('dice-msg').textContent = 'Rolled 6 — roll again!';
+                } else {
+                    nextTurn();
+                }
+            });
+        }
+    });
+
+    /* ================================================================
+       AI LOGIC
+    ================================================================ */
+    function aiTurn() {
+        if (gamePhase === 'finished') return;
+        const pIdx = activePlayerOrder[currentPlayer];
+        rollDiceAnim((value) => {
+            handlePostRoll(pIdx, value);
+        });
+    }
+
+    function aiChooseMove(pIdx, dice, moves) {
+        const p = players[pIdx];
+        // Priority 1: Capture if possible
+        for (const move of moves) {
+            if (move.type === 'move' && move.newPos <= 51) {
+                const absPos = (PLAYER_START_IDX[p.color] + move.newPos) % 52;
+                if (SAFE_SPOTS.has(absPos)) continue;
+                let canCapture = false;
+                players.forEach((op, oi) => {
+                    if (oi === pIdx) return;
+                    op.tokens.forEach(ot => {
+                        if (ot.pos >= 0 && ot.pos <= 51) {
+                            const otherAbs = (PLAYER_START_IDX[op.color] + ot.pos) % 52;
+                            if (otherAbs === absPos) canCapture = true;
+                        }
+                    });
+                });
+                if (canCapture) return move;
+            }
+        }
+        // Priority 2: Reach home
+        for (const move of moves) {
+            if (move.newPos === 58) return move;
+        }
+        // Priority 3: Enter home stretch if close
+        for (const move of moves) {
+            if (move.newPos >= 52 && move.newPos < 58) return move;
+        }
+        // Priority 4: Bring out token on 6
+        if (dice === 6) {
+            const enterMove = moves.find(m => m.type === 'enter');
+            if (enterMove && p.tokens.filter(t => t.pos === -1).length > 2) return enterMove;
+        }
+        // Priority 5: Move the furthest token
+        let bestMove = moves[0];
+        let bestPos = -999;
+        moves.forEach(move => {
+            if (move.newPos > bestPos) {
+                bestPos = move.newPos;
+                bestMove = move;
+            }
+        });
+        // Random factor to avoid predictability
+        if (moves.length > 1 && Math.random() < 0.2) {
+            return moves[Math.floor(Math.random() * moves.length)];
+        }
+        return bestMove;
+    }
+
+    /* ================================================================
+       WIN SCREEN
+    ================================================================ */
+    function showWin(pIdx) {
+        const p = players[pIdx];
+        const overlay = document.getElementById('win-overlay');
+        document.getElementById('win-title').textContent = `${p.name} Wins!`;
+        document.getElementById('win-title').style.color = COLOR_HEX[p.color];
+        overlay.classList.add('show');
+        spawnConfetti(COLOR_HEX[p.color]);
+        playSound('win');
+    }
+
+    function spawnConfetti(baseColor) {
+        const colors = [baseColor, '#fff', '#ffd700', lightenColor(baseColor, 80)];
+        for (let i = 0; i < 80; i++) {
+            const el = document.createElement('div');
+            el.className = 'confetti-piece';
+            el.style.left = Math.random() * 100 + 'vw';
+            el.style.top = -20 + 'px';
+            el.style.width = (Math.random()*8+4) + 'px';
+            el.style.height = (Math.random()*8+4) + 'px';
+            el.style.background = colors[Math.floor(Math.random()*colors.length)];
+            el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+            el.style.animationDuration = (Math.random()*2+2) + 's';
+            el.style.animationDelay = (Math.random()*1.5) + 's';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 5000);
+        }
+    }
+
+    /* ================================================================
+       SOUND EFFECTS (Web Audio API)
+    ================================================================ */
+    function playSound(type) {
+        try {
+            const ac = getAudioCtx();
+            if (ac.state === 'suspended') ac.resume();
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            osc.connect(gain);
+            gain.connect(ac.destination);
+
+            switch(type) {
+                case 'dice':
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(200, ac.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(80, ac.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.08, ac.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.12);
+                    osc.start(ac.currentTime);
+                    osc.stop(ac.currentTime + 0.12);
+                    break;
+                case 'move':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, ac.currentTime);
+                    gain.gain.setValueAtTime(0.04, ac.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.06);
+                    osc.start(ac.currentTime);
+                    osc.stop(ac.currentTime + 0.06);
+                    break;
+                case 'capture':
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, ac.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(100, ac.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.1, ac.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.3);
+                    osc.start(ac.currentTime);
+                    osc.stop(ac.currentTime + 0.3);
+                    break;
+                case 'home':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523, ac.currentTime);
+                    osc.frequency.setValueAtTime(659, ac.currentTime + 0.1);
+                    osc.frequency.setValueAtTime(784, ac.currentTime + 0.2);
+                    gain.gain.setValueAtTime(0.08, ac.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.35);
+                    osc.start(ac.currentTime);
+                    osc.stop(ac.currentTime + 0.35);
+                    break;
+                case 'win':
+                    [523,659,784,1047].forEach((freq, i) => {
+                        const o = ac.createOscillator();
+                        const g = ac.createGain();
+                        o.connect(g); g.connect(ac.destination);
+                        o.type = 'sine';
+                        o.frequency.setValueAtTime(freq, ac.currentTime + i*0.15);
+                        g.gain.setValueAtTime(0.08, ac.currentTime + i*0.15);
+                        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + i*0.15 + 0.4);
+                        o.start(ac.currentTime + i*0.15);
+                        o.stop(ac.currentTime + i*0.15 + 0.4);
+                    });
+                    return;
+            }
+        } catch(e) {}
+    }
+
+    /* ================================================================
+       TOAST
+    ================================================================ */
+    let toastTimer = null;
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    /* ================================================================
+       RULES MODAL
+    ================================================================ */
+    function toggleRules() {
+        const m = document.getElementById('rules-modal');
+        m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    /* ================================================================
+       SPOTIFY INTEGRATION
+    ================================================================ */
+    let spotifyToken = null;
+    let spotifyPlayer = null;
+    let spotifyDeviceId = null;
+    let currentTrackUri = null;
+    let searchResults = [];
+
+    // Check for token in URL hash on page load
+    (function checkHashToken() {
+        const hash = window.location.hash;
+        if (hash && hash.includes('access_token')) {
+            const params = new URLSearchParams(hash.substring(1));
+            const token = params.get('access_token');
+            if (token) {
+                spotifyToken = token;
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
+                onSpotifyConnected();
+            }
+        }
+    })();
+
+    function initSpotifyAuth() {
+        const clientId = document.getElementById('sp-client-id').value || document.getElementById('setup-spotify-id').value;
+        if (!clientId) { showToast('Please enter a Spotify Client ID'); return; }
+        const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+        const scopes = encodeURIComponent('streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state playlist-read-private');
+        window.location.href = `https://accounts.spotify.com/authorize?response_type=token&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scopes}&show_dialog=false`;
+    }
+
+    function onSpotifyConnected() {
+        document.getElementById('sp-disconnected').classList.add('hidden');
+        document.getElementById('sp-connected').classList.remove('hidden');
+        document.getElementById('spotify-panel').classList.remove('collapsed');
+        tryInitWebPlayback();
+        fetchNowPlaying();
+    }
+
+    function disconnectSpotify() {
+        spotifyToken = null;
+        spotifyDeviceId = null;
+        if (spotifyPlayer) { spotifyPlayer.disconnect(); spotifyPlayer = null; }
+        document.getElementById('sp-disconnected').classList.remove('hidden');
+        document.getElementById('sp-connected').classList.add('hidden');
+        showToast('Disconnected from Spotify');
+    }
+
+    function tryInitWebPlayback() {
+        if (typeof Spotify === 'undefined') {
+            // Load SDK dynamically
+            const s = document.createElement('script');
+            s.src = 'https://sdk.scdn.co/spotify-player.js';
+            s.onload = () => initWebPlayback();
+            s.onerror = () => console.log('Spotify SDK failed to load');
+            document.head.appendChild(s);
+        } else {
+            initWebPlayback();
+        }
+    }
+
+    function initWebPlayback() {
+        if (typeof Spotify === 'undefined' || !Spotify.Player) return;
+        spotifyPlayer = new Spotify.Player({
+            name: 'LUDO Game',
+            getOAuthToken: cb => cb(spotifyToken),
+            volume: 0.7
+        });
+        spotifyPlayer.connect();
+        spotifyPlayer.on('ready', ({device_id}) => {
+            spotifyDeviceId = device_id;
+            console.log('Spotify Web Playback ready, device:', device_id);
+        });
+        spotifyPlayer.on('player_state_changed', state => {
+            if (state) updateNowPlayingUI(state);
+        });
+        spotifyPlayer.on('authentication_error', () => {
+            showToast('Spotify auth expired — please reconnect');
+            disconnectSpotify();
+        });
+    }
+
+    async function fetchNowPlaying() {
+        if (!spotifyToken) return;
+        try {
+            const res = await fetch('https://api.spotify.com/v1/me/player', {
+                headers: { 'Authorization': 'Bearer ' + spotifyToken }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                updateNowPlayingUI(data);
+            }
+        } catch(e) {}
+    }
+
+    function updateNowPlayingUI(state) {
+        if (!state) return;
+        const track = state.item;
+        if (track) {
+            document.getElementById('sp-track-name').textContent = track.name;
+            document.getElementById('sp-artist').textContent = track.artists.map(a=>a.name).join(', ');
+            const img = document.getElementById('sp-album-art');
+            if (track.album && track.album.images && track.album.images[0]) {
+                img.src = track.album.images[0].url;
+                img.style.display = 'block';
+            } else {
+                img.style.display = 'none';
+            }
+            currentTrackUri = track.uri;
+        }
+        const isPlaying = !state.paused;
+        document.getElementById('sp-play-btn').innerHTML = isPlaying
+            ? '<i class="fa-solid fa-pause"></i>'
+            : '<i class="fa-solid fa-play"></i>';
+    }
+
+    async function searchSpotify() {
+        const query = document.getElementById('sp-search').value.trim();
+        if (!query || !spotifyToken) return;
+        const container = document.getElementById('sp-results');
+        container.innerHTML = '<div class="text-xs p-2" style="color:#666;">Searching...</div>';
+        try {
+            const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=8`, {
+                headers: { 'Authorization': 'Bearer ' + spotifyToken }
+            });
+            const data = await res.json();
+            searchResults = data.tracks ? data.tracks.items : [];
+            container.innerHTML = searchResults.length === 0
+                ? '<div class="text-xs p-2" style="color:#666;">No results found</div>'
+                : searchResults.map((t, i) => `
+                    <div class="sp-track" onclick="playSpotifyTrack(${i})">
+                        <img src="${t.album.images[0]?.url || ''}" alt="" onerror="this.style.display='none'">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm truncate" style="color:#fff;">${t.name}</div>
+                            <div class="text-xs truncate" style="color:#b3b3b3;">${t.artists.map(a=>a.name).join(', ')}</div>
+                        </div>
+                        <span class="text-xs" style="color:#666;">${formatDuration(t.duration_ms)}</span>
+                    </div>
+                `).join('');
+        } catch(e) {
+            container.innerHTML = '<div class="text-xs p-2" style="color:#e63946;">Search failed</div>';
+        }
+    }
+
+    function formatDuration(ms) {
+        const s = Math.floor(ms/1000);
+        return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+    }
+
+    async function playSpotifyTrack(idx) {
+        const track = searchResults[idx];
+        if (!track || !spotifyToken) return;
+        currentTrackUri = track.uri;
+        const body = spotifyDeviceId
+            ? { uris: [track.uri], device_id: spotifyDeviceId }
+            : { uris: [track.uri] };
+        try {
+            let url = 'https://api.spotify.com/v1/me/player/play';
+            if (spotifyDeviceId) url += `?device_id=${spotifyDeviceId}`;
+            const res = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': 'Bearer ' + spotifyToken,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ uris: [track.uri] })
+            });
+            if (!res.ok && res.status !== 204) {
+                // Try without device_id — play on active device
+                const res2 = await fetch('https://api.spotify.com/v1/me/player/play', {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': 'Bearer ' + spotifyToken,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ uris: [track.uri] })
+                });
+                if (!res2.ok && res2.status !== 204) {
+                    showToast('Could not play — make sure Spotify is open on a device');
+                }
+            }
+            setTimeout(fetchNowPlaying, 500);
+        } catch(e) {
+            showToast('Playback failed');
+        }
+    }
+
+    async function spTogglePlay() {
+        if (!spotifyToken) return;
+        try {
+            let url = 'https://api.spotify.com/v1/me/player/' + (document.getElementById('sp-play-btn').innerHTML.includes('pause') ? 'pause' : 'play');
+            if (spotifyDeviceId) url += `?device_id=${spotifyDeviceId}`;
+            await fetch(url, {
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + spotifyToken }
+            });
+            setTimeout(fetchNowPlaying, 300);
+        } catch(e) {}
+    }
+
+    async function spNext() {
+        if (!spotifyToken) return;
+        try {
+            let url = 'https://api.spotify.com/v1/me/player/next';
+            if (spotifyDeviceId) url += `?device_id=${spotifyDeviceId}`;
+            await fetch(url, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + spotifyToken }
+            });
+            setTimeout(fetchNowPlaying, 300);
+        } catch(e) {}
+    }
+
+    async function spPrev() {
+        if (!spotifyToken) return;
+        try {
+            let url = 'https://api.spotify.com/v1/me/player/previous';
+            if (spotifyDeviceId) url += `?device_id=${spotifyDeviceId}`;
+            await fetch(url, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + spotifyToken }
+            });
+            setTimeout(fetchNowPlaying, 300);
+        } catch(e) {}
+    }
+
+    async function spSetVolume(val) {
+        if (!spotifyToken) return;
+        const v = parseInt(val) / 100;
+        if (spotifyPlayer) {
+            spotifyPlayer.setVolume(v).catch(()=>{});
+        }
+        try {
+            let url = `https://api.spotify.com/v1/me/player/volume?volume_percent=${val}`;
+            if (spotifyDeviceId) url += `&device_id=${spotifyDeviceId}`;
+            await fetch(url, {
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + spotifyToken }
+            });
+        } catch(e) {}
+    }
+
+    function toggleSpotify() {
+        document.getElementById('spotify-panel').classList.toggle('collapsed');
+    }
+
+    // Poll for now playing updates
+    setInterval(() => {
+        if (spotifyToken) fetchNowPlaying();
+    }, 5000);
+    </script>
+</body>
+</html>
